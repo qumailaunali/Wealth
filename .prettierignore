@@ -1,0 +1,5 @@
+pnpm-lock.yaml
+lib/generated
+public/sw.js
+.next
+prisma/migrations

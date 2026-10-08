@@ -1,6 +1,16 @@
 node_modules
 .next
 out
+coverage
 .env*
 !.env.example
 *.log
+*.tsbuildinfo
+next-env.d.ts
+/lib/generated
+/public/sw.js
+/public/sw.js.map
+/public/swe-worker-*.js
+/test-results
+/playwright-report
+/playwright/.cache
