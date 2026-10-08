@@ -8,7 +8,9 @@ const PUBLIC_PATHS = ["/offline"];
  */
 export const authConfig = {
   pages: { signIn: "/login" },
-  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 30 },
+  // Rolling session: the proxy re-issues the cookie on each visit (at most daily), so users
+  // stay signed in on their device unless the app goes unused for 90 days.
+  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 90, updateAge: 60 * 60 * 24 },
   trustHost: true,
   providers: [],
   callbacks: {
