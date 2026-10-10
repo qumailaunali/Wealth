@@ -1,15 +1,14 @@
 import "server-only";
+import { cache } from "react";
 import { requireUser } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { bigToMinor } from "@/lib/money";
 import type { CategoryView } from "@/lib/types";
 
-export async function getCategories(
-  options: { includeArchived?: boolean } = {},
-): Promise<CategoryView[]> {
-  const user = await requireUser();
+/** All of the user's categories (archived included), cached per request. */
+const loadCategories = cache(async (userId: string): Promise<CategoryView[]> => {
   const rows = await db.category.findMany({
-    where: { userId: user.id, ...(options.includeArchived ? {} : { isArchived: false }) },
+    where: { userId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
   return rows.map((c) => ({
@@ -22,6 +21,14 @@ export async function getCategories(
     monthlyBudget: c.monthlyBudget === null ? null : bigToMinor(c.monthlyBudget),
     isArchived: c.isArchived,
   }));
+});
+
+export async function getCategories(
+  options: { includeArchived?: boolean } = {},
+): Promise<CategoryView[]> {
+  const user = await requireUser();
+  const categories = await loadCategories(user.id);
+  return options.includeArchived ? categories : categories.filter((c) => !c.isArchived);
 }
 
 /** Number of transactions per category (for delete/reassign decisions). */

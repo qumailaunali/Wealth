@@ -15,6 +15,7 @@ import {
 import { db } from "@/lib/db";
 import { bigToMinor } from "@/lib/money";
 import type { CategoryView } from "@/lib/types";
+import { getAccounts } from "./accounts";
 import { getCategories } from "./categories";
 
 interface FlowRow {
@@ -189,21 +190,18 @@ export async function getReport(params: ReportParams) {
     to: params.to,
   });
 
-  const currencies = await db.account.findMany({
-    where: { userId: user.id },
-    distinct: ["currency"],
-    select: { currency: true },
-  });
-  const currencyList = [...new Set([user.defaultCurrency, ...currencies.map((c) => c.currency)])];
+  // Accounts and categories are request-cached (the app layout already loaded them).
+  const [accounts, categories] = await Promise.all([
+    getAccounts({ includeArchived: true }),
+    getCategories({ includeArchived: true }),
+  ]);
+  const currencyList = [...new Set([user.defaultCurrency, ...accounts.map((a) => a.currency)])];
   const currency =
     params.currency && currencyList.includes(params.currency)
       ? params.currency
       : user.defaultCurrency;
 
-  const [rows, categories] = await Promise.all([
-    loadFlows(user, range, currency),
-    getCategories({ includeArchived: true }),
-  ]);
+  const rows = await loadFlows(user, range, currency);
 
   const sum = totals(rows);
   const days = Math.round((range.to.getTime() - range.from.getTime()) / 86_400_000);

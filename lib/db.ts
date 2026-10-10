@@ -5,7 +5,15 @@ import { PrismaClient } from "@/lib/generated/prisma/client";
 function createClient() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL is not set");
-  const adapter = new PrismaPg({ connectionString, max: 10, connectionTimeoutMillis: 15_000 });
+  // Opening a TLS connection to the database costs several round trips (~0.5–1.3 s to a remote
+  // region), so keep idle connections around instead of pg's default 10 s idle timeout.
+  const adapter = new PrismaPg({
+    connectionString,
+    max: 10,
+    connectionTimeoutMillis: 15_000,
+    idleTimeoutMillis: 5 * 60_000,
+    keepAlive: true,
+  });
   return new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],

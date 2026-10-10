@@ -54,6 +54,26 @@ export async function getRecurringRules(): Promise<RecurringView[]> {
   }));
 }
 
+const RECURRING_CHECK_INTERVAL_MS = 60_000;
+const lastRecurringCheck = new Map<string, number>();
+
+/**
+ * App-open variant of {@link processDueRecurring}: the check sits in front of every page render,
+ * so it runs at most once a minute per user (per server instance) instead of on every navigation.
+ * Saving a rule still calls processDueRecurring directly.
+ */
+export async function processDueRecurringThrottled(userId: string, zone: string) {
+  const now = Date.now();
+  if (now - (lastRecurringCheck.get(userId) ?? 0) < RECURRING_CHECK_INTERVAL_MS) return 0;
+  lastRecurringCheck.set(userId, now);
+  try {
+    return await processDueRecurring(userId, zone);
+  } catch (error) {
+    lastRecurringCheck.delete(userId);
+    throw error;
+  }
+}
+
 /**
  * Materialise due occurrences of the user's recurring rules into real transactions.
  * Called on app open (protected layout) and from the optional cron endpoint.

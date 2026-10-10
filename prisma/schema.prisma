@@ -6,6 +6,8 @@ generator client {
   provider     = "prisma-client"
   output       = "../lib/generated/prisma"
   moduleFormat = "esm"
+  /// Load `include`d relations with a single JOIN query instead of one round trip per relation.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {

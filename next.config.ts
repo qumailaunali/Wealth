@@ -35,6 +35,8 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   serverExternalPackages: ["@prisma/client", "pg"],
+  // The Supabase root CA is read at runtime via `sslrootcert` in DATABASE_URL; ship it with every route.
+  outputFileTracingIncludes: { "/*": ["./prisma/supabase-ca.crt"] },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

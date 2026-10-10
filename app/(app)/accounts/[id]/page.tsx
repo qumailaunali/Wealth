@@ -15,10 +15,13 @@ export const metadata: Metadata = { title: "Account" };
 
 export default async function AccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = await getAccount(id);
+  // Both queries are scoped to the signed-in user, so they can run in parallel.
+  const [data, recent] = await Promise.all([
+    getAccount(id),
+    listTransactions({ accountId: id }, null, 15),
+  ]);
   if (!data) notFound();
   const { account, flows, txCount } = data;
-  const recent = await listTransactions({ accountId: account.id }, null, 15);
   const owed = account.balance < 0;
 
   return (

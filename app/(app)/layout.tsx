@@ -6,12 +6,12 @@ import { AddTransactionProvider } from "@/components/transactions/add-transactio
 import { requireUser } from "@/lib/dal";
 import { getAccounts } from "@/lib/queries/accounts";
 import { getCategories, getTags } from "@/lib/queries/categories";
-import { processDueRecurring } from "@/lib/queries/recurring";
+import { processDueRecurringThrottled } from "@/lib/queries/recurring";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   // Generate any recurring transactions that became due since the last visit (no cron needed).
-  await processDueRecurring(user.id, user.timezone);
+  await processDueRecurringThrottled(user.id, user.timezone);
   const [accounts, categories, tags] = await Promise.all([
     getAccounts({ includeArchived: true }),
     getCategories({ includeArchived: true }),

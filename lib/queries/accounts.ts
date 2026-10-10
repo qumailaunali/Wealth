@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { computeBalance, EMPTY_FLOWS, totalsByCurrency, type AccountFlows } from "@/lib/balance";
 import { requireUser } from "@/lib/dal";
 import { db } from "@/lib/db";
@@ -40,16 +41,17 @@ async function getFlows(userId: string, accountIds?: string[]): Promise<Map<stri
   return flows;
 }
 
-export async function getAccounts(
-  options: { includeArchived?: boolean } = {},
-): Promise<AccountView[]> {
-  const user = await requireUser();
+/**
+ * All of the user's accounts (archived included) with derived balances. Cached per request so the
+ * app layout and the page share one set of queries.
+ */
+const loadAccounts = cache(async (userId: string): Promise<AccountView[]> => {
   const [accounts, flows] = await Promise.all([
     db.account.findMany({
-      where: { userId: user.id, ...(options.includeArchived ? {} : { isArchived: false }) },
+      where: { userId },
       orderBy: [{ isArchived: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
     }),
-    getFlows(user.id),
+    getFlows(userId),
   ]);
   return accounts.map((a) => {
     const opening = bigToMinor(a.openingBalance);
@@ -67,18 +69,26 @@ export async function getAccounts(
       note: a.note,
     };
   });
+});
+
+export async function getAccounts(
+  options: { includeArchived?: boolean } = {},
+): Promise<AccountView[]> {
+  const user = await requireUser();
+  const accounts = await loadAccounts(user.id);
+  return options.includeArchived ? accounts : accounts.filter((a) => !a.isArchived);
 }
 
 export async function getAccount(id: string) {
   const user = await requireUser();
-  const account = await db.account.findFirst({ where: { id, userId: user.id } });
-  if (!account) return null;
-  const [flows, txCount] = await Promise.all([
+  const [account, flows, txCount] = await Promise.all([
+    db.account.findFirst({ where: { id, userId: user.id } }),
     getFlows(user.id, [id]),
     db.transaction.count({
       where: { userId: user.id, OR: [{ accountId: id }, { toAccountId: id }] },
     }),
   ]);
+  if (!account) return null;
   const opening = bigToMinor(account.openingBalance);
   const view: AccountView = {
     id: account.id,
