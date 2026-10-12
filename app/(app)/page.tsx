@@ -51,8 +51,6 @@ export default async function DashboardPage() {
         <MonthSummary month={data.month} lastMonth={data.lastMonth} currency={data.currency} />
       </div>
 
-      <AccountCarousel accounts={accounts} />
-
       <Card
         title="Recent transactions"
         action={
@@ -63,6 +61,8 @@ export default async function DashboardPage() {
       >
         <RecentList items={recent} />
       </Card>
+
+      <AccountCarousel accounts={accounts} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card
