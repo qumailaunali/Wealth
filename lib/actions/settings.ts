@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { hashPassword, signOut, verifyPassword } from "@/lib/auth";
-import { requireUser } from "@/lib/dal";
+import { requireUser, revalidateUserCache } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { changePasswordSchema } from "@/lib/validators/auth";
@@ -23,6 +23,7 @@ export async function updateProfile(input: unknown): Promise<ActionResult> {
       return fail("That email is already in use", { email: ["That email is already in use"] });
   }
   await db.user.update({ where: { id: user.id }, data: parsed.data });
+  revalidateUserCache();
   revalidateApp();
   return ok(undefined);
 }
@@ -39,6 +40,7 @@ export async function updatePreferences(input: unknown): Promise<ActionResult> {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
   });
+  revalidateUserCache();
   revalidateApp();
   return ok(undefined);
 }
@@ -63,6 +65,9 @@ export async function changePassword(input: unknown): Promise<ActionResult> {
       tokenVersion: { increment: 1 },
     },
   });
+  // Drop the cached user row so the bumped tokenVersion takes effect immediately —
+  // otherwise a stolen pre-change session could still validate against the stale cache.
+  revalidateUserCache();
   // All sessions (including this one) are now invalid; send the user to sign in again.
   await signOut({ redirectTo: "/login?reason=password-changed" });
   return ok(undefined);

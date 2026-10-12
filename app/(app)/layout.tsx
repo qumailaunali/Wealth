@@ -7,11 +7,14 @@ import { requireUser } from "@/lib/dal";
 import { getAccounts } from "@/lib/queries/accounts";
 import { getCategories, getTags } from "@/lib/queries/categories";
 import { processDueRecurringThrottled } from "@/lib/queries/recurring";
+import { after } from "next/server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  // Generate any recurring transactions that became due since the last visit (no cron needed).
-  await processDueRecurringThrottled(user.id, user.timezone);
+  // Generate due recurring transactions after the response is sent — the daily Vercel cron
+  // (/api/cron/recurring) is the primary driver; this is a non-blocking safety net so it
+  // never sits on the critical render path of a page navigation.
+  after(() => processDueRecurringThrottled(user.id, user.timezone).catch(() => {}));
   const [accounts, categories, tags] = await Promise.all([
     getAccounts({ includeArchived: true }),
     getCategories({ includeArchived: true }),

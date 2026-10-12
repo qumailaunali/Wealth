@@ -20,9 +20,13 @@ function createClient() {
   });
 }
 
-// Reuse a single client across hot reloads in development (connection pooling pattern for Next.js).
+// Reuse a single client across hot reloads in development and across warm
+// serverless invocations in production. Without this, every cold function instance
+// builds a fresh connection pool (up to 10 connections each), which exhausts the
+// database connection limit under concurrent load and adds TLS handshake latency
+// to the first query of every cold start.
 const globalForPrisma = globalThis as unknown as { prisma?: ReturnType<typeof createClient> };
 
 export const db = globalForPrisma.prisma ?? createClient();
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+globalForPrisma.prisma = db;

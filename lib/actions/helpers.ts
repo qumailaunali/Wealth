@@ -1,5 +1,5 @@
 import "server-only";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { NotFoundError } from "@/lib/dal";
 import type { ActionFailure, ActionResult } from "@/lib/validators/common";
 
@@ -16,6 +16,12 @@ export async function guard<T>(fn: () => Promise<ActionResult<T>>): Promise<Acti
 /** Balances and summaries appear on almost every screen, so refresh the whole app shell. */
 export function revalidateApp() {
   revalidatePath("/", "layout");
+  // Drop the cross-request Data Cache entries too: account balances change with every
+  // transaction, and the shell re-reads accounts/categories/tags on each navigation.
+  // (Next.js 16 requires the cache profile name as the second argument.)
+  revalidateTag("accounts", "default");
+  revalidateTag("categories", "default");
+  revalidateTag("tags", "default");
 }
 
 export function ok<T>(data: T): ActionResult<T> {

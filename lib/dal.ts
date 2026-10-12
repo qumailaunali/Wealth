@@ -6,6 +6,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { cache } from "react";
+import { revalidateTag, unstable_cache } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import type { Weekday } from "@/lib/dates";
@@ -25,20 +26,9 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const session = await auth();
   const id = session?.user?.id;
   if (!id) return null;
-  const user = await db.user.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      defaultCurrency: true,
-      locale: true,
-      weekStart: true,
-      timezone: true,
-      theme: true,
-      tokenVersion: true,
-    },
-  });
+  // The user row is cached across requests (see getCachedUserRow) so every page
+  // load doesn't pay a database round trip just to read preferences.
+  const user = await getCachedUserRow(id);
   // Deleted users and sessions issued before a password change are rejected.
   if (!user || user.tokenVersion !== (session.tokenVersion ?? 0)) return null;
   const { tokenVersion: _tv, ...rest } = user;
@@ -48,6 +38,37 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     theme: user.theme === "light" ? "light" : "dark",
   };
 });
+
+/**
+ * The user's own row, cached in the Data Cache across requests. Profile and preference
+ * changes are rare, but this row was previously re-read from the database on every single
+ * page load and API call — a full round trip each time.
+ */
+const getCachedUserRow = unstable_cache(
+  async (id: string) => {
+    return db.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        defaultCurrency: true,
+        locale: true,
+        weekStart: true,
+        timezone: true,
+        theme: true,
+        tokenVersion: true,
+      },
+    });
+  },
+  ["dal-user-row"],
+  { tags: ["user"], revalidate: 3600 },
+);
+
+/** Drop the cached user row — call after profile, preference, or password changes. */
+export function revalidateUserCache() {
+  revalidateTag("user", "default");
+}
 
 /** For pages and server actions: redirects to /login when there is no valid session. */
 export async function requireUser(): Promise<CurrentUser> {

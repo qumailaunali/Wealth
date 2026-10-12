@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { computeBalance, EMPTY_FLOWS, totalsByCurrency, type AccountFlows } from "@/lib/balance";
 import { requireUser } from "@/lib/dal";
 import { db } from "@/lib/db";
@@ -42,34 +43,44 @@ async function getFlows(userId: string, accountIds?: string[]): Promise<Map<stri
 }
 
 /**
- * All of the user's accounts (archived included) with derived balances. Cached per request so the
- * app layout and the page share one set of queries.
+ * All of the user's accounts (archived included) with derived balances. Cached in the Data
+ * Cache across requests — the app shell re-reads this on every page navigation, but accounts
+ * only change when the user edits them (which revalidates the "accounts" tag).
+ * The React cache() wrapper additionally dedupes within a single request.
  */
-const loadAccounts = cache(async (userId: string): Promise<AccountView[]> => {
-  const [accounts, flows] = await Promise.all([
-    db.account.findMany({
-      where: { userId },
-      orderBy: [{ isArchived: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
-    }),
-    getFlows(userId),
-  ]);
-  return accounts.map((a) => {
-    const opening = bigToMinor(a.openingBalance);
-    return {
-      id: a.id,
-      name: a.name,
-      type: a.type,
-      currency: a.currency,
-      openingBalance: opening,
-      balance: computeBalance(opening, flows.get(a.id)),
-      color: a.color,
-      icon: a.icon,
-      includeInTotal: a.includeInTotal,
-      isArchived: a.isArchived,
-      note: a.note,
-    };
-  });
-});
+const loadAccounts = cache((userId: string): Promise<AccountView[]> =>
+  getCachedAccounts(userId),
+);
+
+const getCachedAccounts = unstable_cache(
+  async (userId: string): Promise<AccountView[]> => {
+    const [accounts, flows] = await Promise.all([
+      db.account.findMany({
+        where: { userId },
+        orderBy: [{ isArchived: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+      }),
+      getFlows(userId),
+    ]);
+    return accounts.map((a) => {
+      const opening = bigToMinor(a.openingBalance);
+      return {
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        currency: a.currency,
+        openingBalance: opening,
+        balance: computeBalance(opening, flows.get(a.id)),
+        color: a.color,
+        icon: a.icon,
+        includeInTotal: a.includeInTotal,
+        isArchived: a.isArchived,
+        note: a.note,
+      };
+    });
+  },
+  ["accounts-data"],
+  { tags: ["accounts"] },
+);
 
 export async function getAccounts(
   options: { includeArchived?: boolean } = {},
