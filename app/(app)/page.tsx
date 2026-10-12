@@ -53,6 +53,17 @@ export default async function DashboardPage() {
 
       <AccountCarousel accounts={accounts} />
 
+      <Card
+        title="Recent transactions"
+        action={
+          <Link href="/transactions" className="text-primary text-sm font-medium">
+            See all
+          </Link>
+        }
+      >
+        <RecentList items={recent} />
+      </Card>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card
           title="Spending by category"
@@ -73,42 +84,30 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card
-          title="Budgets"
-          action={
-            <Link href="/categories" className="text-primary text-sm font-medium">
-              Edit
-            </Link>
-          }
-        >
-          {data.budgets.length ? (
-            <BudgetList budgets={data.budgets} currency={data.currency} />
-          ) : (
-            <EmptyState
-              icon={Target}
-              title="No budgets set"
-              description="Add a monthly budget to a category to track it here."
-              action={
-                <Link href="/categories" className="text-primary text-sm font-semibold">
-                  Set a budget
-                </Link>
-              }
-              className="py-6"
-            />
-          )}
-        </Card>
-        <Card
-          title="Recent transactions"
-          action={
-            <Link href="/transactions" className="text-primary text-sm font-medium">
-              See all
-            </Link>
-          }
-        >
-          <RecentList items={recent} />
-        </Card>
-      </div>
+      <Card
+        title="Budgets"
+        action={
+          <Link href="/categories" className="text-primary text-sm font-medium">
+            Edit
+          </Link>
+        }
+      >
+        {data.budgets.length ? (
+          <BudgetList budgets={data.budgets} currency={data.currency} />
+        ) : (
+          <EmptyState
+            icon={Target}
+            title="No budgets set"
+            description="Add a monthly budget to a category to track it here."
+            action={
+              <Link href="/categories" className="text-primary text-sm font-semibold">
+                Set a budget
+              </Link>
+            }
+            className="py-6"
+          />
+        )}
+      </Card>
     </div>
   );
 }
