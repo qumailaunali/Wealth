@@ -2,13 +2,14 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, CalendarClock, ChevronDown, Loader2, Trash2 } from "lucide-react";
+import { ArrowDown, ChevronDown, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { IconBadge } from "@/components/app-icon";
 import { applyFieldErrors, Field, fieldA11y } from "@/components/forms/field";
+import { DateTimePicker } from "@/components/forms/date-picker";
 import { Money } from "@/components/money";
 import { useAppData } from "@/components/providers/app-data";
 import { Button } from "@/components/ui/button";
@@ -132,9 +133,9 @@ export function TransactionForm({
     defaultValues: buildDefaults(initial, defaultType, activeAccounts, prefs.timezone),
   });
   const { errors, isSubmitted } = form.formState;
-  const [type, amount, accountId, toAccountId, categoryId] = useWatch({
+  const [type, amount, accountId, toAccountId, categoryId, occurredAt] = useWatch({
     control: form.control,
-    name: ["type", "amount", "accountId", "toAccountId", "categoryId"],
+    name: ["type", "amount", "accountId", "toAccountId", "categoryId", "occurredAt"],
   });
 
   const account = activeAccounts.find((a) => a.id === accountId);
@@ -441,19 +442,15 @@ export function TransactionForm({
             enterKeyHint="done"
             {...form.register("title")}
           />
-          <div className="relative">
-            <label className="sr-only" htmlFor="tx-date">
-              Date and time
-            </label>
-            <CalendarClock
-              className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
-              aria-hidden="true"
-            />
-            <Input
+          <div>
+            <DateTimePicker
               id="tx-date"
-              type="datetime-local"
-              className="w-[11.5rem] pl-9 text-sm [&::-webkit-calendar-picker-indicator]:opacity-0"
-              {...form.register("occurredAt")}
+              value={occurredAt}
+              onChange={(next) =>
+                form.setValue("occurredAt", next, { shouldValidate: isSubmitted })
+              }
+              timezone={prefs.timezone}
+              weekStart={prefs.weekStart}
             />
           </div>
         </div>
