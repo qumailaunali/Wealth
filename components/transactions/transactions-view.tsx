@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { dayKey, dayLabel } from "@/lib/dates";
+import { usePendingTransactions } from "./use-pending";
 import type { TransactionPage, TransactionView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { parseFilters, type TransactionFilters } from "@/lib/validators/finance";
@@ -88,6 +89,8 @@ export function TransactionsView() {
     return () => io.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  const pending = usePendingTransactions();
+
   const groups = useMemo(() => {
     const pages = query.data?.pages ?? [];
     const dayTotals = Object.assign(
@@ -95,14 +98,15 @@ export function TransactionsView() {
       ...pages.map((p) => p.dayTotals),
     ) as TransactionPage["dayTotals"];
     const map = new Map<string, TransactionView[]>();
-    for (const tx of pages.flatMap((p) => p.items)) {
+    // Pending (offline-queued) transactions appear first, grouped by day.
+    for (const tx of [...pending, ...pages.flatMap((p) => p.items)]) {
       const key = dayKey(new Date(tx.occurredAt), prefs.timezone);
       const list = map.get(key) ?? [];
       list.push(tx);
       map.set(key, list);
     }
     return [...map.entries()].map(([key, items]) => ({ key, items, total: dayTotals[key] }));
-  }, [query.data, prefs.timezone]);
+  }, [query.data, pending, prefs.timezone]);
 
   const chips: { key: keyof TransactionFilters; label: string }[] = [];
   if (filters.type) chips.push({ key: "type", label: filters.type.toLowerCase() });
