@@ -1,8 +1,7 @@
 "use client";
 
 import { Eye, EyeOff } from "lucide-react";
-import { animate, useMotionValue, useMotionValueEvent, useReducedMotion } from "motion/react";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import { usePrefs } from "@/components/providers/app-data";
 import { formatMoney } from "@/lib/money";
 
@@ -38,26 +37,6 @@ export function useHiddenAmounts() {
     window.dispatchEvent(new Event(HIDE_EVENT));
   };
   return { hidden, toggle };
-}
-
-function CountUp({ value, currency, locale }: { value: number; currency: string; locale: string }) {
-  const reduce = useReducedMotion();
-  const mv = useMotionValue(reduce ? value : 0);
-  const [display, setDisplay] = useState(() =>
-    formatMoney(reduce ? value : 0, currency, { locale }),
-  );
-  useMotionValueEvent(mv, "change", (v) =>
-    setDisplay(formatMoney(Math.round(v), currency, { locale })),
-  );
-  useEffect(() => {
-    if (reduce) {
-      mv.set(value);
-      return;
-    }
-    const controls = animate(mv, value, { duration: 0.9, ease: [0.16, 1, 0.3, 1] });
-    return () => controls.stop();
-  }, [value, mv, reduce]);
-  return <>{display}</>;
 }
 
 export function BalanceCard({
@@ -112,7 +91,7 @@ export function BalanceCard({
             {hidden ? (
               <span aria-hidden="true">••••••</span>
             ) : (
-              <CountUp value={main} currency={prefs.defaultCurrency} locale={prefs.locale} />
+              formatMoney(main, prefs.defaultCurrency, { locale: prefs.locale })
             )}
           </span>
         </button>
