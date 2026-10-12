@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import type { TransactionView, TxType } from "@/lib/types";
 import { TransactionForm } from "./transaction-form";
@@ -23,11 +23,44 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
     options: {},
     key: 0,
   });
+  // Whether we pushed a history entry for the open sheet (so back closes it).
+  const pushedEntry = useRef(false);
+  const isOpen = useRef(false);
 
   const open = useCallback((options: OpenOptions = {}) => {
+    isOpen.current = true;
     setState((s) => ({ open: true, options, key: s.key + 1 }));
+    // Push a history entry so the Android system back button closes the sheet
+    // instead of leaving the app. The router state is preserved.
+    if (typeof window !== "undefined" && !pushedEntry.current) {
+      window.history.pushState({ ...window.history.state, __txSheet: true }, "");
+      pushedEntry.current = true;
+    }
   }, []);
-  const close = useCallback(() => setState((s) => ({ ...s, open: false })), []);
+  const close = useCallback(() => {
+    if (!isOpen.current) return;
+    isOpen.current = false;
+    setState((s) => ({ ...s, open: false }));
+    // Drop the entry we pushed so a later back press behaves normally.
+    if (pushedEntry.current && typeof window !== "undefined") {
+      pushedEntry.current = false;
+      window.history.back();
+    }
+  }, []);
+
+  // System back button while the sheet is open: the browser already popped our
+  // entry — just close the sheet and stay on the page.
+  useEffect(() => {
+    const onPopState = () => {
+      if (pushedEntry.current) {
+        pushedEntry.current = false;
+        isOpen.current = false;
+        setState((s) => (s.open ? { ...s, open: false } : s));
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
   const value = useMemo(() => ({ open }), [open]);
   const editing = state.options.transaction;
 
