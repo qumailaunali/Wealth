@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { TransactionForm } from "@/components/transactions/transaction-form";
 import type { TxType } from "@/lib/types";
@@ -8,6 +9,20 @@ import type { TxType } from "@/lib/types";
 /** Full-page add form, used by the home-screen shortcuts (Add expense / income / transfer). */
 export function NewTransaction({ type }: { type: TxType }) {
   const router = useRouter();
+
+  useEffect(() => {
+    // Home-screen shortcuts launch this page directly, leaving an empty history
+    // stack — the Android system back button would then close the app. Seed the
+    // stack with the dashboard underneath so back lands there instead.
+    // The router state object is preserved so Next.js navigation keeps working.
+    if (typeof window !== "undefined" && window.history.length <= 1) {
+      const url = window.location.pathname + window.location.search;
+      const state = window.history.state;
+      window.history.replaceState(state, "", "/");
+      window.history.pushState(state, "", url);
+    }
+  }, []);
+
   return (
     <div className="flex h-[calc(100dvh-max(env(safe-area-inset-top),12px)-env(safe-area-inset-bottom)-6rem)] min-h-[560px] flex-col lg:h-[calc(100dvh-5rem)]">
       <PageHeader title="Add transaction" backHref="/" className="pb-2" />

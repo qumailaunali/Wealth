@@ -424,8 +424,8 @@ export function TransactionForm({
           </div>
         )}
 
-        {/* Title + date */}
-        <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
+        {/* Description */}
+        <div className="mt-4">
           <label className="sr-only" htmlFor="tx-title">
             Title or payee
           </label>
@@ -440,19 +440,21 @@ export function TransactionForm({
             }
             autoComplete="off"
             enterKeyHint="done"
+            className="h-13 py-3 text-base"
             {...form.register("title")}
           />
-          <div>
-            <DateTimePicker
-              id="tx-date"
-              value={occurredAt}
-              onChange={(next) =>
-                form.setValue("occurredAt", next, { shouldValidate: isSubmitted })
-              }
-              timezone={prefs.timezone}
-              weekStart={prefs.weekStart}
-            />
-          </div>
+        </div>
+        {/* Date + time */}
+        <div className="mt-2">
+          <DateTimePicker
+            id="tx-date"
+            value={occurredAt}
+            onChange={(next) =>
+              form.setValue("occurredAt", next, { shouldValidate: isSubmitted })
+            }
+            timezone={prefs.timezone}
+            weekStart={prefs.weekStart}
+          />
         </div>
         {errors.occurredAt ? (
           <p className="text-expense mt-1 text-sm">{errors.occurredAt.message}</p>
