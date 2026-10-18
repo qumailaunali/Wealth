@@ -1,13 +1,22 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
-import type { TransactionView, TxType } from "@/lib/types";
-import { TransactionForm } from "./transaction-form";
+import type { TransactionView } from "@/lib/types";
+import { TransactionForm, type TxMode, type TxPreset } from "./transaction-form";
 
 interface OpenOptions {
-  type?: TxType;
+  type?: TxMode;
   transaction?: TransactionView;
+  preset?: TxPreset;
 }
 
 interface AddTransactionContextValue {
@@ -80,6 +89,7 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
               key={state.key}
               initial={editing}
               defaultType={state.options.type}
+              preset={state.options.preset}
               onDone={close}
               active={state.open}
             />

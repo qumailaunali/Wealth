@@ -3,7 +3,7 @@
 export type TxType = "EXPENSE" | "INCOME" | "TRANSFER";
 export type CatType = "EXPENSE" | "INCOME";
 export type AccountTypeName =
-  "CASH" | "BANK" | "MOBILE_WALLET" | "CREDIT_CARD" | "SAVINGS" | "OTHER";
+  "CASH" | "BANK" | "MOBILE_WALLET" | "CREDIT_CARD" | "SAVINGS" | "OTHER" | "RECEIVABLE";
 
 export interface AccountView {
   id: string;

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { usePrefs } from "@/components/providers/app-data";
 import { totalsByCurrency } from "@/lib/balance";
+import { isReceivable } from "@/lib/constants";
 import { convertTotals } from "@/lib/fx";
 import { formatMoney } from "@/lib/money";
 import type { AccountView } from "@/lib/types";
@@ -25,12 +26,16 @@ export function TotalBalanceCard({
   const { hidden } = useHiddenAmounts();
   const currency = prefs.defaultCurrency;
 
-  const { total, count, excluded } = useMemo(() => {
+  const { total, count, toCollect, excluded } = useMemo(() => {
     const included = accounts.filter((a) => a.includeInTotal && !a.isArchived);
-    const converted = convertTotals(totalsByCurrency(included), prefs.fxRates, currency);
+    const convert = (list: AccountView[]) =>
+      convertTotals(totalsByCurrency(list), prefs.fxRates, currency);
+    const converted = convert(included);
     return {
       total: converted.total,
-      count: included.length,
+      count: included.filter((a) => !isReceivable(a)).length,
+      // Money paid on others' behalf: part of the total, not in any account.
+      toCollect: convert(included.filter((a) => isReceivable(a) && a.balance > 0)).total,
       excluded: Object.keys(converted.unconverted),
     };
   }, [accounts, prefs.fxRates, currency]);
@@ -51,6 +56,9 @@ export function TotalBalanceCard({
         </span>
         <span className="text-muted-foreground block truncate text-[11px]">
           {count} {count === 1 ? "account" : "accounts"}
+          {toCollect > 0
+            ? ` · incl. ${hidden ? "••••" : formatMoney(toCollect, currency, { locale: prefs.locale })} to collect`
+            : ""}
           {excluded.length ? ` · excl. ${excluded.join(", ")} (no rate)` : ""}
         </span>
       </span>

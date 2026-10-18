@@ -7,7 +7,8 @@ import { Card } from "@/components/card";
 import { PageHeader } from "@/components/layout/page-header";
 import { Money } from "@/components/money";
 import { RecentList } from "@/components/transactions/recent-list";
-import { accountTypeLabel } from "@/lib/constants";
+import { PersonActions } from "@/components/accounts/person-actions";
+import { accountTypeLabel, isReceivable } from "@/lib/constants";
 import { getAccount } from "@/lib/queries/accounts";
 import { listTransactions } from "@/lib/queries/transactions";
 
@@ -22,7 +23,20 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   ]);
   if (!data) notFound();
   const { account, flows, txCount } = data;
+  const person = isReceivable(account);
   const owed = account.balance < 0;
+  const stats = person
+    ? [
+        { label: "Paid for", value: account.openingBalance + flows.transferIn },
+        { label: "Paid back", value: flows.transferOut },
+        ...(flows.expense ? [{ label: "Written off", value: flows.expense }] : []),
+      ]
+    : [
+        { label: "Opening", value: account.openingBalance },
+        { label: "Income", value: flows.income },
+        { label: "Expenses", value: -flows.expense },
+        { label: "Transfers", value: flows.transferIn - flows.transferOut },
+      ];
 
   return (
     <div className="grid grid-cols-1 gap-6">
@@ -43,14 +57,32 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
           <IconBadge name={account.icon} color={account.color} size="lg" />
           <div>
             <p className="text-muted-foreground text-sm">
-              {owed && account.type === "CREDIT_CARD" ? "Amount owed" : "Balance"}
+              {person
+                ? account.balance > 0
+                  ? "Owes you"
+                  : account.balance < 0
+                    ? "You owe"
+                    : "All settled"
+                : owed && account.type === "CREDIT_CARD"
+                  ? "Amount owed"
+                  : "Balance"}
             </p>
             <Money
               value={
-                owed && account.type === "CREDIT_CARD" ? Math.abs(account.balance) : account.balance
+                person || (owed && account.type === "CREDIT_CARD")
+                  ? Math.abs(account.balance)
+                  : account.balance
               }
               currency={account.currency}
-              className={owed ? "text-expense text-3xl font-extrabold" : "text-3xl font-extrabold"}
+              className={
+                person
+                  ? account.balance > 0
+                    ? "text-warning text-3xl font-extrabold"
+                    : "text-3xl font-extrabold"
+                  : owed
+                    ? "text-expense text-3xl font-extrabold"
+                    : "text-3xl font-extrabold"
+              }
             />
           </div>
         </div>
@@ -60,12 +92,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
           </p>
         ) : null}
         <dl className="mt-5 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-          {[
-            { label: "Opening", value: account.openingBalance },
-            { label: "Income", value: flows.income },
-            { label: "Expenses", value: -flows.expense },
-            { label: "Transfers", value: flows.transferIn - flows.transferOut },
-          ].map((s) => (
+          {stats.map((s) => (
             <div key={s.label} className="bg-surface-2/60 rounded-2xl p-3">
               <dt className="text-muted-foreground text-xs">{s.label}</dt>
               <dd>
@@ -77,6 +104,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
         {account.note ? <p className="text-muted-foreground mt-4 text-sm">{account.note}</p> : null}
       </section>
 
+      {person && !account.isArchived ? <PersonActions person={account} /> : null}
       <AccountActions account={account} txCount={txCount} />
 
       <Card

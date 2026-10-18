@@ -2,8 +2,9 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ChevronDown, Loader2, Trash2 } from "lucide-react";
+import { ArrowDown, ChevronDown, Loader2, Trash2, UserPlus } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
@@ -16,11 +17,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { Textarea } from "@/components/ui/textarea";
+import { createAccount } from "@/lib/actions/accounts";
 import {
   createTransaction,
   deleteTransaction,
   updateTransaction,
 } from "@/lib/actions/transactions";
+import { isReceivable } from "@/lib/constants";
 import { toLocalDateTimeInput } from "@/lib/dates";
 import { applyKey, formatKeypadDisplay, type KeypadKey } from "@/lib/keypad";
 import { currencyDecimals, toInputString } from "@/lib/money";
@@ -32,11 +35,25 @@ import { AmountKeypad } from "./amount-keypad";
 
 const LAST_ACCOUNT_KEY = "wealth:last-account";
 
-const TYPE_OPTIONS: { value: TxType; label: string; activeClassName: string }[] = [
+/** Form mode. "LENT" (paid on someone's behalf) is saved as a transfer into an "Owed to me" account. */
+export type TxMode = TxType | "LENT";
+
+/** Preset values when opening the sheet (e.g. "Got it back" from a person's page). */
+export interface TxPreset {
+  accountId?: string;
+  toAccountId?: string;
+  /** Minor units, in the source account's currency */
+  amount?: number;
+}
+
+const TYPE_OPTIONS: { value: TxMode; label: string; activeClassName: string }[] = [
   { value: "EXPENSE", label: "Expense", activeClassName: "bg-expense/15 text-expense" },
   { value: "INCOME", label: "Income", activeClassName: "bg-income/15 text-income" },
   { value: "TRANSFER", label: "Transfer", activeClassName: "bg-transfer/15 text-transfer" },
+  { value: "LENT", label: "Paid for", activeClassName: "bg-warning/15 text-warning" },
 ];
+
+const PERSON_COLORS = ["#F59E0B", "#EC4899", "#8B5CF6", "#06B6D4", "#84CC16", "#F97316"];
 
 function readLastAccount(): string | null {
   try {
@@ -48,9 +65,10 @@ function readLastAccount(): string | null {
 
 function buildDefaults(
   initial: TransactionView | undefined,
-  type: TxType,
+  mode: TxMode,
   accounts: AccountView[],
   timezone: string,
+  preset: TxPreset = {},
 ): TransactionInput {
   if (initial) {
     return {
@@ -71,14 +89,25 @@ function buildDefaults(
     };
   }
   const active = accounts.filter((a) => !a.isArchived);
+  const own = active.filter((a) => !isReceivable(a));
+  const people = active.filter(isReceivable);
   const last = typeof window !== "undefined" ? readLastAccount() : null;
-  const accountId = active.find((a) => a.id === last)?.id ?? active[0]?.id ?? "";
+  const accountId =
+    preset.accountId ?? own.find((a) => a.id === last)?.id ?? own[0]?.id ?? active[0]?.id ?? "";
+  const source = active.find((a) => a.id === accountId);
+  const toAccountId =
+    preset.toAccountId ??
+    (mode === "LENT"
+      ? (people[0]?.id ?? null)
+      : mode === "TRANSFER"
+        ? (own.find((a) => a.id !== accountId)?.id ?? null)
+        : null);
   return {
-    type,
-    amount: "",
+    type: mode === "LENT" ? "TRANSFER" : mode,
+    amount: preset.amount && source ? toInputString(preset.amount, source.currency) : "",
     toAmount: "",
     accountId,
-    toAccountId: type === "TRANSFER" ? (active.find((a) => a.id !== accountId)?.id ?? null) : null,
+    toAccountId,
     categoryId: null,
     title: "",
     note: "",
@@ -102,16 +131,30 @@ function orderedCategories(categories: CategoryView[], type: TxType) {
 export function TransactionForm({
   initial,
   defaultType = "EXPENSE",
+  preset,
   onDone,
   active = true,
 }: {
   initial?: TransactionView;
-  defaultType?: TxType;
+  defaultType?: TxMode;
+  preset?: TxPreset;
   onDone: () => void;
   /** Whether physical-keyboard shortcuts are enabled (sheet is open) */
   active?: boolean;
 }) {
-  const { accounts, categories, prefs } = useAppData();
+  const { accounts: appAccounts, categories, prefs } = useAppData();
+  const router = useRouter();
+  // People added inline from this form, until the refreshed app data includes them.
+  const [addedPeople, setAddedPeople] = useState<AccountView[]>([]);
+  const accounts = useMemo(
+    () => [...appAccounts, ...addedPeople.filter((p) => !appAccounts.some((a) => a.id === p.id))],
+    [appAccounts, addedPeople],
+  );
+  const [mode, setMode] = useState<TxMode>(() => {
+    if (!initial) return defaultType;
+    const to = appAccounts.find((a) => a.id === initial.toAccount?.id);
+    return initial.type === "TRANSFER" && to && isReceivable(to) ? "LENT" : initial.type;
+  });
   const queryClient = useQueryClient();
   const [pending, startTransition] = useTransition();
   const [formError, setFormError] = useState<string | null>(null);
@@ -130,7 +173,7 @@ export function TransactionForm({
 
   const form = useForm({
     resolver: zodResolver(transactionSchema),
-    defaultValues: buildDefaults(initial, defaultType, activeAccounts, prefs.timezone),
+    defaultValues: buildDefaults(initial, mode, activeAccounts, prefs.timezone, preset),
   });
   const { errors, isSubmitted } = form.formState;
   const [type, amount, accountId, toAccountId, categoryId, occurredAt] = useWatch({
@@ -140,6 +183,13 @@ export function TransactionForm({
 
   const account = activeAccounts.find((a) => a.id === accountId);
   const toAccount = activeAccounts.find((a) => a.id === toAccountId);
+  // Own accounts first; people ("Owed to me") only where they make sense.
+  const ownAccounts = useMemo(
+    () => activeAccounts.filter((a) => !isReceivable(a)),
+    [activeAccounts],
+  );
+  const people = useMemo(() => activeAccounts.filter(isReceivable), [activeAccounts]);
+  const orderedAccounts = useMemo(() => [...ownAccounts, ...people], [ownAccounts, people]);
   const currency = account?.currency ?? prefs.defaultCurrency;
   const decimals = currencyDecimals(currency);
   const crossCurrency =
@@ -155,16 +205,66 @@ export function TransactionForm({
     [form, decimals, isSubmitted],
   );
 
-  const setType = (t: TxType) => {
-    form.setValue("type", t);
+  const setType = (m: TxMode) => {
+    setMode(m);
+    form.setValue("type", m === "LENT" ? "TRANSFER" : m);
     form.setValue("categoryId", null);
-    if (t === "TRANSFER" && !form.getValues("toAccountId")) {
-      form.setValue(
-        "toAccountId",
-        activeAccounts.find((a) => a.id !== form.getValues("accountId"))?.id ?? null,
-      );
+    const from = form.getValues("accountId");
+    const fromIsPerson = people.some((p) => p.id === from);
+    if (m === "LENT") {
+      if (fromIsPerson && ownAccounts[0]) form.setValue("accountId", ownAccounts[0].id);
+      const to = form.getValues("toAccountId");
+      if (!people.some((p) => p.id === to)) form.setValue("toAccountId", people[0]?.id ?? null);
+    } else if (m === "TRANSFER") {
+      const to = form.getValues("toAccountId");
+      if (!to || to === from) {
+        form.setValue("toAccountId", ownAccounts.find((a) => a.id !== from)?.id ?? null);
+      }
+    } else if (fromIsPerson && ownAccounts[0]) {
+      form.setValue("accountId", ownAccounts[0].id);
     }
     form.clearErrors();
+  };
+
+  const [personName, setPersonName] = useState("");
+  const [addingPerson, startAddPerson] = useTransition();
+  const addPerson = () => {
+    const name = personName.trim();
+    if (!name) return;
+    const currency = account?.currency ?? prefs.defaultCurrency;
+    const color = PERSON_COLORS[people.length % PERSON_COLORS.length] ?? "#F59E0B";
+    startAddPerson(async () => {
+      const res = await createAccount({
+        name,
+        type: "RECEIVABLE",
+        currency,
+        openingBalance: "0",
+        color,
+        icon: "user",
+        includeInTotal: true,
+        note: "",
+      });
+      if (!res.ok) return void toast.error(res.error);
+      setAddedPeople((list) => [
+        ...list,
+        {
+          id: res.data.id,
+          name,
+          type: "RECEIVABLE",
+          currency,
+          openingBalance: 0,
+          balance: 0,
+          color,
+          icon: "user",
+          includeInTotal: true,
+          isArchived: false,
+          note: null,
+        },
+      ]);
+      form.setValue("toAccountId", res.data.id, { shouldValidate: isSubmitted });
+      setPersonName("");
+      router.refresh();
+    });
   };
 
   const submit = form.handleSubmit((values) => {
@@ -283,14 +383,20 @@ export function TransactionForm({
   }
 
   const amountTone =
-    type === "EXPENSE" ? "text-expense" : type === "INCOME" ? "text-income" : "text-transfer";
+    mode === "LENT"
+      ? "text-warning"
+      : type === "EXPENSE"
+        ? "text-expense"
+        : type === "INCOME"
+          ? "text-income"
+          : "text-transfer";
 
   return (
     <form onSubmit={submit} noValidate className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4">
         <Segmented
           label="Transaction type"
-          value={type}
+          value={mode}
           onChange={setType}
           options={TYPE_OPTIONS}
         />
@@ -317,11 +423,74 @@ export function TransactionForm({
         </div>
 
         {/* Category chips / transfer accounts */}
-        {type === "TRANSFER" ? (
+        {mode === "LENT" ? (
+          <div className="mt-5 grid grid-cols-1 gap-3">
+            <AccountChips
+              label="Paid from"
+              accounts={ownAccounts}
+              value={accountId}
+              onChange={(id) => form.setValue("accountId", id, { shouldValidate: isSubmitted })}
+            />
+            <AccountChips
+              label="Paid for"
+              accounts={people}
+              value={toAccountId ?? ""}
+              onChange={(id) => form.setValue("toAccountId", id, { shouldValidate: isSubmitted })}
+              error={errors.toAccountId?.message}
+              showBalanceAs="owed"
+            />
+            <div className="flex gap-2">
+              <label className="sr-only" htmlFor="tx-person">
+                New person
+              </label>
+              <Input
+                id="tx-person"
+                value={personName}
+                onChange={(e) => setPersonName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addPerson();
+                  }
+                }}
+                placeholder={people.length ? "Someone else? Add a name" : "Who for? e.g. Mummy"}
+                autoComplete="off"
+                maxLength={40}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addPerson}
+                disabled={!personName.trim() || addingPerson}
+              >
+                {addingPerson ? (
+                  <Loader2 className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <UserPlus aria-hidden="true" />
+                )}
+                Add
+              </Button>
+            </div>
+            {crossCurrency ? (
+              <Field
+                id="toAmount"
+                label={`Amount in ${toAccount?.currency}`}
+                error={errors.toAmount?.message}
+              >
+                <Input
+                  {...fieldA11y("toAmount", errors.toAmount?.message)}
+                  inputMode="decimal"
+                  placeholder="0"
+                  {...form.register("toAmount")}
+                />
+              </Field>
+            ) : null}
+          </div>
+        ) : type === "TRANSFER" ? (
           <div className="mt-5 grid grid-cols-1 gap-3">
             <AccountChips
               label="From"
-              accounts={activeAccounts}
+              accounts={orderedAccounts}
               value={accountId}
               onChange={(id) => form.setValue("accountId", id, { shouldValidate: isSubmitted })}
             />
@@ -330,7 +499,7 @@ export function TransactionForm({
             </div>
             <AccountChips
               label="To"
-              accounts={activeAccounts.filter((a) => a.id !== accountId)}
+              accounts={orderedAccounts.filter((a) => a.id !== accountId)}
               value={toAccountId ?? ""}
               onChange={(id) => form.setValue("toAccountId", id, { shouldValidate: isSubmitted })}
               error={errors.toAccountId?.message}
@@ -416,7 +585,7 @@ export function TransactionForm({
             <div className="mt-3">
               <AccountChips
                 label="Account"
-                accounts={activeAccounts}
+                accounts={orderedAccounts}
                 value={accountId}
                 onChange={(id) => form.setValue("accountId", id, { shouldValidate: isSubmitted })}
               />
@@ -432,11 +601,13 @@ export function TransactionForm({
           <Input
             id="tx-title"
             placeholder={
-              type === "INCOME"
-                ? "From (e.g. Salary)"
-                : type === "TRANSFER"
-                  ? "Note"
-                  : "Payee (e.g. Daraz)"
+              mode === "LENT"
+                ? "What for (e.g. medicines)"
+                : type === "INCOME"
+                  ? "From (e.g. Salary)"
+                  : type === "TRANSFER"
+                    ? "Note"
+                    : "Payee (e.g. Daraz)"
             }
             autoComplete="off"
             enterKeyHint="done"
@@ -449,9 +620,7 @@ export function TransactionForm({
           <DateTimePicker
             id="tx-date"
             value={occurredAt}
-            onChange={(next) =>
-              form.setValue("occurredAt", next, { shouldValidate: isSubmitted })
-            }
+            onChange={(next) => form.setValue("occurredAt", next, { shouldValidate: isSubmitted })}
             timezone={prefs.timezone}
             weekStart={prefs.weekStart}
           />
@@ -534,7 +703,7 @@ export function TransactionForm({
           ) : null}
           <Button type="submit" size="lg" className="flex-1" disabled={pending}>
             {pending ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
-            {initial ? "Save changes" : `Save ${type.toLowerCase()}`}
+            {initial ? "Save changes" : mode === "LENT" ? "Save" : `Save ${type.toLowerCase()}`}
           </Button>
         </div>
       </div>
@@ -548,14 +717,18 @@ function AccountChips({
   value,
   onChange,
   error,
+  showBalanceAs = "balance",
 }: {
   label: string;
   accounts: AccountView[];
   value: string;
   onChange: (id: string) => void;
   error?: string;
+  /** "owed" labels a person's balance as what they owe you */
+  showBalanceAs?: "balance" | "owed";
 }) {
-  const id = `acc-${label.toLowerCase()}`;
+  const id = `acc-${label.toLowerCase().replace(/\s+/g, "-")}`;
+  if (!accounts.length && !error) return null;
   return (
     <div>
       <p className="text-muted-foreground mb-2 text-xs font-medium" id={id}>
@@ -583,11 +756,14 @@ function AccountChips({
               <IconBadge name={a.icon} color={a.color} size="sm" className="size-7 rounded-lg" />
               <span className="flex flex-col leading-tight">
                 <span className="text-sm font-medium whitespace-nowrap">{a.name}</span>
-                <Money
-                  value={a.balance}
-                  currency={a.currency}
-                  className="text-muted-foreground text-[11px]"
-                />
+                {showBalanceAs === "owed" && a.balance === 0 ? (
+                  <span className="text-muted-foreground text-[11px]">Settled</span>
+                ) : (
+                  <span className="text-muted-foreground text-[11px]">
+                    {showBalanceAs === "owed" ? "Owes " : null}
+                    <Money value={a.balance} currency={a.currency} />
+                  </span>
+                )}
               </span>
             </button>
           );

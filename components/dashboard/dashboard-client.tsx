@@ -8,6 +8,7 @@ import { AccountCarousel } from "@/components/dashboard/account-carousel";
 import { BudgetList } from "@/components/dashboard/budget-list";
 import { MonthExpenseCard } from "@/components/dashboard/month-expense-card";
 import { MonthSummary } from "@/components/dashboard/month-summary";
+import { ToCollectCard } from "@/components/dashboard/to-collect-card";
 import { TotalBalanceCard } from "@/components/dashboard/total-balance-card";
 import { CategoryBreakdown, TrendCard } from "@/components/dashboard/spending-cards";
 import { EmptyState } from "@/components/empty-state";
@@ -157,6 +158,7 @@ export function DashboardClient({
       </div>
 
       <AccountCarousel accounts={mergedAccounts} />
+      <ToCollectCard accounts={mergedAccounts} />
 
       <Card
         title="Recent transactions"

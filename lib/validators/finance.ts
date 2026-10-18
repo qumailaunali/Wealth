@@ -17,6 +17,7 @@ export const accountTypeEnum = z.enum([
   "CREDIT_CARD",
   "SAVINGS",
   "OTHER",
+  "RECEIVABLE",
 ]);
 
 export const accountSchema = z.object({

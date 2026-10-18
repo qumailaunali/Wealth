@@ -7,7 +7,7 @@ import { IconBadge } from "@/components/app-icon";
 import { EmptyState } from "@/components/empty-state";
 import { Money } from "@/components/money";
 import { Button } from "@/components/ui/button";
-import { accountTypeLabel } from "@/lib/constants";
+import { accountTypeLabel, isReceivable } from "@/lib/constants";
 import type { AccountView } from "@/lib/types";
 import { AccountFormSheet } from "./account-form-sheet";
 
@@ -25,6 +25,31 @@ export function NewAccountButton() {
       </Button>
       <AccountFormSheet open={open} onOpenChange={setOpen} />
     </>
+  );
+}
+
+function PersonItem({ a }: { a: AccountView }) {
+  return (
+    <li>
+      <Link
+        href={`/accounts/${a.id}`}
+        className="pressable hover:bg-surface-2/70 flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors"
+      >
+        <IconBadge name={a.icon} color={a.color} />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium">{a.name}</span>
+          <span className="text-muted-foreground block truncate text-xs">
+            {a.balance > 0 ? "Owes you" : a.balance < 0 ? "You owe" : "Settled"}
+          </span>
+        </span>
+        <Money
+          value={Math.abs(a.balance)}
+          currency={a.currency}
+          className={a.balance > 0 ? "text-warning font-semibold" : "font-semibold"}
+        />
+        <ChevronRight className="text-muted-foreground size-4" aria-hidden="true" />
+      </Link>
+    </li>
   );
 }
 
@@ -62,7 +87,8 @@ function AccountItem({ a }: { a: AccountView }) {
 
 export function AccountsList({ accounts }: { accounts: AccountView[] }) {
   const router = useRouter();
-  const active = accounts.filter((a) => !a.isArchived);
+  const active = accounts.filter((a) => !a.isArchived && !isReceivable(a));
+  const people = accounts.filter((a) => !a.isArchived && isReceivable(a));
   const archived = accounts.filter((a) => a.isArchived);
   if (!accounts.length) {
     return (
@@ -81,6 +107,18 @@ export function AccountsList({ accounts }: { accounts: AccountView[] }) {
           <AccountItem key={a.id} a={a} />
         ))}
       </ul>
+      {people.length ? (
+        <section id="owed-to-me" aria-labelledby="owed-heading" className="scroll-mt-20">
+          <h2 id="owed-heading" className="text-muted-foreground mb-2 text-sm font-semibold">
+            Owed to me
+          </h2>
+          <ul className="-mx-3 grid grid-cols-1 gap-0.5">
+            {people.map((a) => (
+              <PersonItem key={a.id} a={a} />
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {archived.length ? (
         <section aria-labelledby="archived-heading">
           <h2 id="archived-heading" className="text-muted-foreground mb-2 text-sm font-semibold">

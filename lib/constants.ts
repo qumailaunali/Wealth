@@ -10,12 +10,22 @@ export const ACCOUNT_TYPES = [
   { value: "CREDIT_CARD", label: "Credit Card", icon: "credit-card" },
   { value: "SAVINGS", label: "Savings", icon: "piggy-bank" },
   { value: "OTHER", label: "Other", icon: "wallet" },
+  { value: "RECEIVABLE", label: "Owed to me", icon: "user" },
 ] as const;
 
 export type AccountTypeValue = (typeof ACCOUNT_TYPES)[number]["value"];
 
 export function accountTypeLabel(type: string): string {
   return ACCOUNT_TYPES.find((t) => t.value === type)?.label ?? type;
+}
+
+/**
+ * "Owed to me" accounts track money paid on someone's behalf. Paying for them is a
+ * transfer into the account, getting it back is a transfer out — so the money stays
+ * in the total balance without inflating cash or counting as spending.
+ */
+export function isReceivable(account: { type: string }): boolean {
+  return account.type === "RECEIVABLE";
 }
 
 /** Curated palette — all pass AA as icon/badge colours on the dark surfaces. */

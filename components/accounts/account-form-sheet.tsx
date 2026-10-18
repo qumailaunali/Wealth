@@ -147,6 +147,7 @@ function AccountForm({ account, onDone }: { account?: AccountView; onDone: () =>
                   form.setValue("type", t.value);
                   form.setValue("icon", t.icon);
                   if (t.value === "CREDIT_CARD") setOwed(true);
+                  if (t.value === "RECEIVABLE") setOwed(false);
                 }}
                 className={cn(
                   "pressable text-muted-foreground h-11 rounded-xl border px-2 text-xs font-semibold",
@@ -174,7 +175,13 @@ function AccountForm({ account, onDone }: { account?: AccountView; onDone: () =>
           </Field>
           <Field
             id="acc-opening"
-            label={account ? "Opening balance" : "Current balance"}
+            label={
+              type === "RECEIVABLE"
+                ? "Already owes you"
+                : account
+                  ? "Opening balance"
+                  : "Current balance"
+            }
             error={errors.openingBalance?.message}
           >
             <Input
@@ -185,12 +192,19 @@ function AccountForm({ account, onDone }: { account?: AccountView; onDone: () =>
             />
           </Field>
         </div>
-        <label className="bg-surface-2/60 -mt-2 flex min-h-11 items-center justify-between gap-3 rounded-xl px-3.5">
-          <span className="text-sm">
-            This is money I owe <span className="text-muted-foreground">(e.g. card debt)</span>
-          </span>
-          <Switch checked={owed} onCheckedChange={setOwed} aria-label="Balance is owed" />
-        </label>
+        {type === "RECEIVABLE" ? (
+          <p className="text-muted-foreground -mt-2 text-xs">
+            Money you paid on this person&apos;s behalf. It counts in your total balance until they
+            pay you back.
+          </p>
+        ) : (
+          <label className="bg-surface-2/60 -mt-2 flex min-h-11 items-center justify-between gap-3 rounded-xl px-3.5">
+            <span className="text-sm">
+              This is money I owe <span className="text-muted-foreground">(e.g. card debt)</span>
+            </span>
+            <Switch checked={owed} onCheckedChange={setOwed} aria-label="Balance is owed" />
+          </label>
+        )}
 
         <div className="grid grid-cols-1 gap-2">
           <span className="text-muted-foreground text-sm font-medium">Colour</span>

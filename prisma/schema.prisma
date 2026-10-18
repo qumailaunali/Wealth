@@ -21,6 +21,7 @@ enum AccountType {
   CREDIT_CARD
   SAVINGS
   OTHER
+  RECEIVABLE
 }
 
 enum CategoryType {
