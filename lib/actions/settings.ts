@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { changePasswordSchema } from "@/lib/validators/auth";
 import { type ActionResult, zodFail } from "@/lib/validators/common";
-import { deleteAccountSchema, preferencesSchema, profileSchema } from "@/lib/validators/finance";
+import { deleteAccountSchema, fxRatesSchema, preferencesSchema, profileSchema } from "@/lib/validators/finance";
 import { fail, ok, revalidateApp } from "./helpers";
 
 export async function updateProfile(input: unknown): Promise<ActionResult> {
@@ -40,6 +40,16 @@ export async function updatePreferences(input: unknown): Promise<ActionResult> {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
   });
+  revalidateUserCache();
+  revalidateApp();
+  return ok(undefined);
+}
+
+export async function updateFxRates(input: unknown): Promise<ActionResult> {
+  const user = await requireUser();
+  const parsed = fxRatesSchema.safeParse(input);
+  if (!parsed.success) return zodFail(parsed.error);
+  await db.user.update({ where: { id: user.id }, data: { fxRates: parsed.data.rates } });
   revalidateUserCache();
   revalidateApp();
   return ok(undefined);

@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "fxRates" JSONB NOT NULL DEFAULT '{}';

@@ -20,6 +20,8 @@ export interface CurrentUser {
   weekStart: Weekday;
   timezone: string;
   theme: "dark" | "light";
+  /** Exchange rates to the default currency: { USD: 278.5 }. */
+  fxRates: Record<string, number>;
 }
 
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
@@ -36,6 +38,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     ...rest,
     weekStart: (user.weekStart % 7) as Weekday,
     theme: user.theme === "light" ? "light" : "dark",
+    fxRates: await getCachedFxRates(id),
   };
 });
 
@@ -69,6 +72,32 @@ const getCachedUserRow = unstable_cache(
 export function revalidateUserCache() {
   revalidateTag("user", "default");
 }
+
+/**
+ * The user's FX rates, cached separately from the user row. Reads are wrapped so a
+ * deployment that ships before `prisma migrate deploy` adds the column keeps working
+ * (rates just read as empty until the migration runs).
+ */
+const getCachedFxRates = unstable_cache(
+  async (id: string): Promise<Record<string, number>> => {
+    try {
+      const row = await db.user.findUnique({ where: { id }, select: { fxRates: true } });
+      const v = row?.fxRates;
+      if (v && typeof v === "object" && !Array.isArray(v)) {
+        const out: Record<string, number> = {};
+        for (const [k, rate] of Object.entries(v as Record<string, unknown>)) {
+          if (typeof rate === "number" && Number.isFinite(rate) && rate > 0) out[k] = rate;
+        }
+        return out;
+      }
+      return {};
+    } catch {
+      return {};
+    }
+  },
+  ["dal-fx-rates"],
+  { tags: ["user"], revalidate: 60 },
+);
 
 /** For pages and server actions: redirects to /login when there is no valid session. */
 export async function requireUser(): Promise<CurrentUser> {

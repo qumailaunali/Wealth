@@ -68,4 +68,6 @@ export interface UserPrefs {
   weekStart: number;
   timezone: string;
   theme: "dark" | "light";
+  /** Exchange rates to the default currency: { USD: 278.5 } = 1 USD buys 278.5 defaultCurrency. */
+  fxRates: Record<string, number>;
 }

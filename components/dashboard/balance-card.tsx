@@ -1,8 +1,10 @@
 "use client";
 
 import { Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import { usePrefs } from "@/components/providers/app-data";
+import { convertTotals } from "@/lib/fx";
 import { formatMoney } from "@/lib/money";
 
 const HIDE_KEY = "wealth:hide-balance";
@@ -48,8 +50,12 @@ export function BalanceCard({
 }) {
   const prefs = usePrefs();
   const { hidden, toggle } = useHiddenAmounts();
-  const main = totals[prefs.defaultCurrency] ?? 0;
-  const others = Object.entries(totals).filter(([c]) => c !== prefs.defaultCurrency);
+  // Foreign-currency accounts are folded into the default-currency total using
+  // the user's exchange rates (Settings → Exchange rates).
+  const converted = convertTotals(totals, prefs.fxRates, prefs.defaultCurrency);
+  const main = converted.total;
+  const foreign = converted.parts.filter((p) => p.currency !== prefs.defaultCurrency);
+  const unconverted = Object.entries(converted.unconverted);
 
   return (
     <section
@@ -95,14 +101,36 @@ export function BalanceCard({
             )}
           </span>
         </button>
-        {others.length ? (
-          <p className="text-muted-foreground mt-1 flex flex-wrap gap-x-3 text-sm">
-            {others.map(([c, v]) => (
-              <span key={c} className="num">
-                {hidden ? `${c} ••••` : formatMoney(v, c, { locale: prefs.locale })}
+        {foreign.length || unconverted.length ? (
+          <div className="text-muted-foreground mt-1 flex flex-col gap-0.5 text-sm">
+            {foreign.map((p) => (
+              <span key={p.currency} className="num">
+                {hidden ? (
+                  `${p.currency} ••••`
+                ) : (
+                  <>
+                    {formatMoney(p.original, p.currency, { locale: prefs.locale })}
+                    <span aria-hidden="true"> → </span>
+                    {formatMoney(p.converted, prefs.defaultCurrency, { locale: prefs.locale })}
+                  </>
+                )}
               </span>
             ))}
-          </p>
+            {unconverted.map(([c, v]) => (
+              <span key={c} className="num">
+                {hidden ? (
+                  `${c} ••••`
+                ) : (
+                  <>
+                    {formatMoney(v, c, { locale: prefs.locale })}{" "}
+                    <Link href="/settings" className="text-primary underline">
+                      set a rate
+                    </Link>
+                  </>
+                )}
+              </span>
+            ))}
+          </div>
         ) : null}
         <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-black/20 px-3 py-1 text-xs font-medium">
           <span className={monthNet >= 0 ? "text-income" : "text-expense"}>

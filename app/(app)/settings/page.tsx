@@ -8,6 +8,7 @@ import {
   ProfileForm,
   SessionSection,
 } from "@/components/settings/settings-forms";
+import { FxRatesSection } from "@/components/settings/fx-rates-section";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -18,6 +19,7 @@ export default function SettingsPage() {
       <InstallSection />
       <ProfileForm />
       <PreferencesForm />
+      <FxRatesSection />
       <PasswordForm />
       <DataSection />
       <SessionSection />

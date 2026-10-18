@@ -4,6 +4,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { Money } from "@/components/money";
 import { requireUser } from "@/lib/dal";
+import { convertTotals } from "@/lib/fx";
 import { getAccounts, netWorth } from "@/lib/queries/accounts";
 
 export const metadata: Metadata = { title: "More" };
@@ -11,7 +12,7 @@ export const metadata: Metadata = { title: "More" };
 export default async function MorePage() {
   const user = await requireUser();
   const accounts = await getAccounts();
-  const total = netWorth(accounts)[user.defaultCurrency] ?? 0;
+  const { total } = convertTotals(netWorth(accounts), user.fxRates, user.defaultCurrency);
 
   const links = [
     {

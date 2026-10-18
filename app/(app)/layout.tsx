@@ -33,6 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             weekStart: user.weekStart,
             timezone: user.timezone,
             theme: user.theme,
+            fxRates: user.fxRates,
           },
           accounts,
           categories,

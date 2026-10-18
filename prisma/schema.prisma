@@ -53,6 +53,8 @@ model User {
   weekStart       Int      @default(1)
   timezone        String   @default("Asia/Karachi")
   theme           String   @default("dark")
+  /// Exchange rates to the default currency: { "USD": 278.5 } means 1 USD = 278.5 defaultCurrency. Set in Settings.
+  fxRates         Json     @default("{}")
   /// Bumped on password change to invalidate existing sessions
   tokenVersion    Int      @default(0)
   createdAt       DateTime @default(now())

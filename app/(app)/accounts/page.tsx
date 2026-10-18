@@ -4,6 +4,7 @@ import { AccountsList, NewAccountButton } from "@/components/accounts/accounts-l
 import { Money } from "@/components/money";
 import { PageHeader } from "@/components/layout/page-header";
 import { requireUser } from "@/lib/dal";
+import { convertTotals } from "@/lib/fx";
 import { getAccounts, netWorth } from "@/lib/queries/accounts";
 
 export const metadata: Metadata = { title: "Accounts" };
@@ -11,9 +12,15 @@ export const metadata: Metadata = { title: "Accounts" };
 export default async function AccountsPage() {
   const user = await requireUser();
   const accounts = await getAccounts({ includeArchived: true });
-  const totals = Object.entries(netWorth(accounts)).sort(([a], [b]) =>
-    a === user.defaultCurrency ? -1 : b === user.defaultCurrency ? 1 : a.localeCompare(b),
+  const converted = convertTotals(netWorth(accounts), user.fxRates, user.defaultCurrency);
+  const totals = converted.parts.sort((a, b) =>
+    a.currency === user.defaultCurrency
+      ? -1
+      : b.currency === user.defaultCurrency
+        ? 1
+        : a.currency.localeCompare(b.currency),
   );
+  const unconverted = Object.entries(converted.unconverted);
 
   return (
     <>
@@ -26,28 +33,29 @@ export default async function AccountsPage() {
           </Suspense>
         }
       />
-      {totals.length ? (
+      {totals.length || unconverted.length ? (
         <section aria-label="Net worth" className="bg-card mb-6 rounded-3xl border p-4">
           <p className="text-muted-foreground text-sm">Net worth</p>
-          <div className="mt-1 grid grid-cols-1 gap-1">
-            {totals.map(([currency, total], i) => (
-              <Money
-                key={currency}
-                value={total}
-                currency={currency}
-                className={
-                  i === 0
-                    ? "text-3xl font-extrabold tracking-tight"
-                    : "text-muted-foreground text-base font-semibold"
-                }
-              />
+          <Money
+            value={converted.total}
+            currency={user.defaultCurrency}
+            className="mt-1 text-3xl font-extrabold tracking-tight"
+          />
+          <div className="mt-2 grid grid-cols-1 gap-1">
+            {totals
+              .filter((p) => p.currency !== user.defaultCurrency)
+              .map((p) => (
+                <p key={p.currency} className="text-muted-foreground text-sm font-semibold">
+                  <Money value={p.original} currency={p.currency} /> →{" "}
+                  <Money value={p.converted} currency={user.defaultCurrency} />
+                </p>
+              ))}
+            {unconverted.map(([currency, total]) => (
+              <p key={currency} className="text-muted-foreground text-sm font-semibold">
+                <Money value={total} currency={currency} /> · set a rate in Settings
+              </p>
             ))}
           </div>
-          {totals.length > 1 ? (
-            <p className="text-muted-foreground mt-2 text-xs">
-              Totals are shown per currency (no conversion).
-            </p>
-          ) : null}
         </section>
       ) : null}
       <AccountsList accounts={accounts} />

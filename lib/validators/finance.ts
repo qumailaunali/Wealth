@@ -177,6 +177,16 @@ export const preferencesSchema = z.object({
 });
 export type PreferencesInput = z.input<typeof preferencesSchema>;
 
+/** Exchange rates to the user's default currency: { USD: 278.5 }. */
+export const fxRatesSchema = z.object({
+  rates: z
+    .record(z.string(), z.number().finite().positive().max(1_000_000_000))
+    .refine((rates) => Object.keys(rates).every((c) => /^[A-Z]{3}$/.test(c)), {
+      error: "Rates must be keyed by 3-letter currency codes",
+    }),
+});
+export type FxRatesInput = z.input<typeof fxRatesSchema>;
+
 export const deleteAccountSchema = z.object({
   password: z.string().min(1, "Enter your password"),
   confirm: z.literal("DELETE", { error: 'Type "DELETE" to confirm' }),

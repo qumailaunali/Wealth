@@ -26,6 +26,7 @@ import { logoutAction } from "@/lib/actions/auth";
 import {
   changePassword,
   deleteUserAccount,
+  updateFxRates,
   updatePreferences,
   updateProfile,
 } from "@/lib/actions/settings";
@@ -189,6 +190,75 @@ export function PreferencesForm() {
           preferences
         </Button>
       </form>
+    </Section>
+  );
+}
+
+/** Exchange rates used to fold foreign-currency accounts into the total balance. */
+export function FxRatesForm({ currencies }: { currencies: string[] }) {
+  const prefs = usePrefs();
+  const [pending, startTransition] = useTransition();
+  const [rates, setRates] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      currencies.map((c) => [c, prefs.fxRates[c] !== undefined ? String(prefs.fxRates[c]) : ""]),
+    ),
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  if (!currencies.length) return null;
+
+  const save = () => {
+    const parsed: Record<string, number> = {};
+    for (const c of currencies) {
+      const raw = (rates[c] ?? "").trim();
+      if (!raw) continue; // blank = no conversion for this currency
+      const v = Number(raw);
+      if (!Number.isFinite(v) || v <= 0) {
+        setError(`Enter a valid rate for ${c} (a positive number).`);
+        return;
+      }
+      parsed[c] = v;
+    }
+    setError(null);
+    startTransition(async () => {
+      const res = await updateFxRates({ rates: parsed });
+      if (!res.ok) return void toast.error(res.error);
+      toast.success("Exchange rates saved");
+    });
+  };
+
+  return (
+    <Section
+      title="Exchange rates"
+      description={`Convert foreign accounts into your ${prefs.defaultCurrency} total. 1 unit of foreign currency buys this many ${prefs.defaultCurrency}.`}
+    >
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {currencies.map((c) => (
+          <Field key={c} id={`fx-${c}`} label={`${c} → ${prefs.defaultCurrency}`}>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-sm whitespace-nowrap">1 {c} =</span>
+              <Input
+                id={`fx-${c}`}
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="e.g. 278.50"
+                value={rates[c] ?? ""}
+                onChange={(e) => setRates((r) => ({ ...r, [c]: e.target.value }))}
+                className="h-12 text-base"
+              />
+              <span className="text-muted-foreground text-sm">{prefs.defaultCurrency}</span>
+            </div>
+          </Field>
+        ))}
+      </div>
+      {error ? (
+        <p role="alert" className="text-expense mt-3 text-sm">
+          {error}
+        </p>
+      ) : null}
+      <Button type="button" onClick={save} disabled={pending} className="mt-4 justify-self-start">
+        {pending ? <Loader2 className="animate-spin" aria-hidden="true" /> : null} Save rates
+      </Button>
     </Section>
   );
 }
