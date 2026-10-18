@@ -24,15 +24,15 @@ export function MonthExpenseCard({
   return (
     <section
       aria-label="Spent this month"
-      className="via-card to-card relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-expense/25 p-5 shadow-2xl shadow-black/20"
+      className="via-card to-card from-expense/25 relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br p-5 shadow-2xl shadow-black/20"
     >
       <div
         aria-hidden="true"
-        className="absolute -top-16 -right-10 size-48 rounded-full bg-expense/20 blur-3xl"
+        className="bg-expense/20 absolute -top-16 -right-10 size-48 rounded-full blur-3xl"
       />
       <div
         aria-hidden="true"
-        className="absolute -bottom-20 -left-10 size-40 rounded-full bg-expense/10 blur-3xl"
+        className="bg-expense/10 absolute -bottom-20 -left-10 size-40 rounded-full blur-3xl"
       />
       <div className="relative">
         <div className="flex items-center justify-between">

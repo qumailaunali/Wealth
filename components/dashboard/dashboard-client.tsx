@@ -144,14 +144,19 @@ export function DashboardClient({
           prevExpense={mergedData.lastMonth.expense}
           currency={mergedData.currency}
         />
-        <MonthSummary
-          month={mergedData.month}
-          lastMonth={mergedData.lastMonth}
-          currency={mergedData.currency}
-          balance={balanceTotal}
-        />
+        {/* Mobile keeps it lean: hero → balance → accounts → recent. */}
+        <div className="hidden sm:block">
+          <MonthSummary
+            month={mergedData.month}
+            lastMonth={mergedData.lastMonth}
+            currency={mergedData.currency}
+            balance={balanceTotal}
+          />
+        </div>
         <TotalBalanceCard accounts={mergedAccounts} className="sm:hidden" />
       </div>
+
+      <AccountCarousel accounts={mergedAccounts} />
 
       <Card
         title="Recent transactions"
@@ -163,8 +168,6 @@ export function DashboardClient({
       >
         <RecentList items={mergedRecent} />
       </Card>
-
-      <AccountCarousel accounts={mergedAccounts} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card
@@ -181,9 +184,11 @@ export function DashboardClient({
             <EmptyState icon={ChartPie} title="Nothing spent yet this month" className="py-6" />
           )}
         </Card>
-        <Card title="Spending trend">
-          <TrendCard data={mergedData.trend} currency={mergedData.currency} />
-        </Card>
+        <div className="hidden sm:block">
+          <Card title="Spending trend">
+            <TrendCard data={mergedData.trend} currency={mergedData.currency} />
+          </Card>
+        </div>
       </div>
 
       <Card

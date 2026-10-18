@@ -6,6 +6,7 @@ import { IconBadge } from "@/components/app-icon";
 import { Money } from "@/components/money";
 import { accountTypeLabel } from "@/lib/constants";
 import type { AccountView } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { useHiddenAmounts } from "./use-hidden-amounts";
 
 export function AccountCarousel({ accounts }: { accounts: AccountView[] }) {
@@ -27,7 +28,7 @@ export function AccountCarousel({ accounts }: { accounts: AccountView[] }) {
             <li key={a.id} className="shrink-0 snap-start">
               <Link
                 href={`/accounts/${a.id}`}
-                className="pressable bg-card relative flex h-[118px] w-[164px] flex-col justify-between overflow-hidden rounded-2xl border p-3.5"
+                className="pressable bg-card relative flex h-[92px] w-[144px] flex-col justify-between overflow-hidden rounded-2xl border p-3 sm:h-[118px] sm:w-[164px] sm:p-3.5"
               >
                 <span
                   aria-hidden="true"
@@ -48,12 +49,12 @@ export function AccountCarousel({ accounts }: { accounts: AccountView[] }) {
                     <span className="text-expense block text-[11px] font-medium">Owed</span>
                   ) : null}
                   {hidden ? (
-                    <span className="num text-lg font-bold">••••</span>
+                    <span className="num text-base font-bold sm:text-lg">••••</span>
                   ) : (
                     <Money
                       value={owed ? Math.abs(a.balance) : a.balance}
                       currency={a.currency}
-                      className={owed ? "text-expense text-lg font-bold" : "text-lg font-bold"}
+                      className={cn("text-base font-bold sm:text-lg", owed && "text-expense")}
                     />
                   )}
                 </span>
@@ -64,7 +65,7 @@ export function AccountCarousel({ accounts }: { accounts: AccountView[] }) {
         <li className="shrink-0 snap-start">
           <Link
             href="/accounts?new=1"
-            className="pressable text-muted-foreground hover:text-foreground flex h-[118px] w-[120px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed text-sm font-medium"
+            className="pressable text-muted-foreground hover:text-foreground flex h-[92px] w-[110px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed text-sm font-medium sm:h-[118px] sm:w-[120px]"
           >
             <Plus className="size-5" aria-hidden="true" />
             Add account
