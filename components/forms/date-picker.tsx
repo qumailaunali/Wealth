@@ -157,11 +157,17 @@ export function DateTimePicker({
 
       {open
         ? createPortal(
+            // NOTE: pointer-events-auto is required here. The add-transaction
+            // sheet is a modal Vaul/Radix dialog, which sets
+            // `body { pointer-events: none }` while open; only elements inside
+            // the dialog layer get pointer events back. This popover is
+            // portaled to document.body (outside the layer), so without this
+            // class the calendar renders but no date can be clicked.
             <div
               ref={popRef}
               role="dialog"
               aria-label="Choose date"
-              className="bg-card border-input fixed z-[100] rounded-2xl border p-3 shadow-2xl"
+              className="bg-card border-input pointer-events-auto fixed z-[100] rounded-2xl border p-3 shadow-2xl"
               style={{ top: pos.top, left: pos.left, width: pos.width }}
             >
               <div className="mb-2 flex items-center justify-between">
