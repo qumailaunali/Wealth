@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight, PiggyBank } from "lucide-react";
+import { ArrowDownRight, PiggyBank, Wallet } from "lucide-react";
 import { Money } from "@/components/money";
 import { percentChange } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -7,6 +7,16 @@ interface Totals {
   income: number;
   expense: number;
   net: number;
+}
+
+interface Tile {
+  label: string;
+  value: number;
+  /** Undefined hides the vs-last-month delta (e.g. for the balance tile). */
+  prev?: number;
+  icon: typeof Wallet;
+  tone: string;
+  goodWhenUp: boolean;
 }
 
 function Delta({
@@ -35,12 +45,15 @@ export function MonthSummary({
   month,
   lastMonth,
   currency,
+  balance,
 }: {
   month: Totals;
   lastMonth: Totals;
   currency: string;
+  /** Total balance across accounts (FX-converted) — takes the expense tile's slot. */
+  balance: number;
 }) {
-  const tiles = [
+  const tiles: Tile[] = [
     {
       label: "Income",
       value: month.income,
@@ -50,12 +63,11 @@ export function MonthSummary({
       goodWhenUp: true,
     },
     {
-      label: "Expense",
-      value: month.expense,
-      prev: lastMonth.expense,
-      icon: ArrowUpRight,
-      tone: "text-expense bg-expense/12",
-      goodWhenUp: false,
+      label: "Total balance",
+      value: balance,
+      icon: Wallet,
+      tone: "text-primary bg-primary/12",
+      goodWhenUp: true,
     },
     {
       label: "Net savings",
@@ -87,7 +99,9 @@ export function MonthSummary({
               <span className="text-muted-foreground text-xs font-medium">{t.label}</span>
             </div>
             <Money value={t.value} currency={currency} className="mt-2 block text-lg font-bold" />
-            <Delta current={t.value} previous={t.prev} goodWhenUp={t.goodWhenUp} />
+            {t.prev !== undefined ? (
+              <Delta current={t.value} previous={t.prev} goodWhenUp={t.goodWhenUp} />
+            ) : null}
           </div>
         ))}
       </div>

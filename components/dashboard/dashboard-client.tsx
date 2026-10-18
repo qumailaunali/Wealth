@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { Card } from "@/components/card";
 import { AccountCarousel } from "@/components/dashboard/account-carousel";
-import { BalanceCard } from "@/components/dashboard/balance-card";
 import { BudgetList } from "@/components/dashboard/budget-list";
+import { MonthExpenseCard } from "@/components/dashboard/month-expense-card";
 import { MonthSummary } from "@/components/dashboard/month-summary";
 import { CategoryBreakdown, TrendCard } from "@/components/dashboard/spending-cards";
 import { EmptyState } from "@/components/empty-state";
@@ -14,6 +14,7 @@ import { RecentList } from "@/components/transactions/recent-list";
 import { usePendingTransactions, type PendingTransactionView } from "@/components/transactions/use-pending";
 import { useAppData } from "@/components/providers/app-data";
 import { dayKey } from "@/lib/dates";
+import { convertTotals } from "@/lib/fx";
 import type { AccountView, TransactionView } from "@/lib/types";
 import type { DashboardData } from "@/lib/queries/insights";
 import { totalsByCurrency } from "@/lib/balance";
@@ -132,15 +133,24 @@ export function DashboardClient({
     [pending, recent],
   );
   const totals = useMemo(() => totalsByCurrency(mergedAccounts), [mergedAccounts]);
+  const balanceTotal = useMemo(
+    () => convertTotals(totals, prefs.fxRates, prefs.defaultCurrency).total,
+    [totals, prefs.fxRates, prefs.defaultCurrency],
+  );
 
   return (
     <>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-start">
-        <BalanceCard totals={totals} monthNet={mergedData.month.net} />
+        <MonthExpenseCard
+          expense={mergedData.month.expense}
+          prevExpense={mergedData.lastMonth.expense}
+          currency={mergedData.currency}
+        />
         <MonthSummary
           month={mergedData.month}
           lastMonth={mergedData.lastMonth}
           currency={mergedData.currency}
+          balance={balanceTotal}
         />
       </div>
 

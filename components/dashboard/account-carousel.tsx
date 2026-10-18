@@ -6,7 +6,7 @@ import { IconBadge } from "@/components/app-icon";
 import { Money } from "@/components/money";
 import { accountTypeLabel } from "@/lib/constants";
 import type { AccountView } from "@/lib/types";
-import { useHiddenAmounts } from "./balance-card";
+import { useHiddenAmounts } from "./use-hidden-amounts";
 
 export function AccountCarousel({ accounts }: { accounts: AccountView[] }) {
   const { hidden } = useHiddenAmounts();
