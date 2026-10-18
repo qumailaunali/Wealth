@@ -4,8 +4,14 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { ListSkeleton, TransactionsView } from "@/components/transactions/transactions-view";
+import { getTopExpenseCategoryIds } from "@/lib/queries/categories";
 
 export const metadata: Metadata = { title: "Transactions" };
+
+async function TransactionsContent() {
+  const topCategoryIds = await getTopExpenseCategoryIds();
+  return <TransactionsView topCategoryIds={topCategoryIds} />;
+}
 
 export default function TransactionsPage() {
   return (
@@ -22,7 +28,7 @@ export default function TransactionsPage() {
         }
       />
       <Suspense fallback={<ListSkeleton />}>
-        <TransactionsView />
+        <TransactionsContent />
       </Suspense>
     </>
   );

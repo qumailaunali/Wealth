@@ -8,10 +8,14 @@ import { AccountCarousel } from "@/components/dashboard/account-carousel";
 import { BudgetList } from "@/components/dashboard/budget-list";
 import { MonthExpenseCard } from "@/components/dashboard/month-expense-card";
 import { MonthSummary } from "@/components/dashboard/month-summary";
+import { TotalBalanceCard } from "@/components/dashboard/total-balance-card";
 import { CategoryBreakdown, TrendCard } from "@/components/dashboard/spending-cards";
 import { EmptyState } from "@/components/empty-state";
 import { RecentList } from "@/components/transactions/recent-list";
-import { usePendingTransactions, type PendingTransactionView } from "@/components/transactions/use-pending";
+import {
+  usePendingTransactions,
+  type PendingTransactionView,
+} from "@/components/transactions/use-pending";
 import { useAppData } from "@/components/providers/app-data";
 import { dayKey } from "@/lib/dates";
 import { convertTotals } from "@/lib/fx";
@@ -20,10 +24,7 @@ import type { DashboardData } from "@/lib/queries/insights";
 import { totalsByCurrency } from "@/lib/balance";
 
 /** Apply pending (offline-queued) transactions to account balances. */
-function mergeAccounts(
-  accounts: AccountView[],
-  pending: PendingTransactionView[],
-): AccountView[] {
+function mergeAccounts(accounts: AccountView[], pending: PendingTransactionView[]): AccountView[] {
   if (!pending.length) return accounts;
   const delta = new Map<string, number>();
   for (const p of pending) {
@@ -120,10 +121,7 @@ export function DashboardClient({
   const { prefs } = useAppData();
   const pending = usePendingTransactions();
 
-  const mergedAccounts = useMemo(
-    () => mergeAccounts(accounts, pending),
-    [accounts, pending],
-  );
+  const mergedAccounts = useMemo(() => mergeAccounts(accounts, pending), [accounts, pending]);
   const mergedData = useMemo(
     () => mergeInsights(data, pending, prefs.timezone),
     [data, pending, prefs.timezone],
@@ -152,6 +150,7 @@ export function DashboardClient({
           currency={mergedData.currency}
           balance={balanceTotal}
         />
+        <TotalBalanceCard accounts={mergedAccounts} className="sm:hidden" />
       </div>
 
       <Card

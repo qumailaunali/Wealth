@@ -4,6 +4,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { Download, Loader2, Receipt, Search, SlidersHorizontal, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AppIcon } from "@/components/app-icon";
 import { EmptyState } from "@/components/empty-state";
 import { Money } from "@/components/money";
 import { useAppData } from "@/components/providers/app-data";
@@ -25,7 +26,7 @@ function toQuery(filters: TransactionFilters, extra: Record<string, string> = {}
   return params.toString();
 }
 
-export function TransactionsView() {
+export function TransactionsView({ topCategoryIds = [] }: { topCategoryIds?: string[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -127,6 +128,17 @@ export function TransactionsView() {
 
   const { q: _q, ...nonSearch } = filters;
 
+  const topCategories = topCategoryIds
+    .map((id) => categories.find((c) => c.id === id))
+    .filter((c): c is NonNullable<typeof c> => !!c);
+  // Tapping a top category shows only its expenses; tapping it again clears.
+  const toggleTopCategory = (id: string) =>
+    setFilters(
+      filters.categoryId === id
+        ? { ...filters, categoryId: undefined, type: undefined }
+        : { ...filters, categoryId: id, type: "EXPENSE" },
+    );
+
   return (
     <div>
       <div className="bg-background/90 sticky top-0 z-20 -mx-4 px-4 pt-1 pb-3 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
@@ -169,6 +181,42 @@ export function TransactionsView() {
             </a>
           </Button>
         </div>
+        {topCategories.length ? (
+          <div
+            role="group"
+            aria-label="Top expense categories"
+            className="no-scrollbar mt-3 flex gap-2 overflow-x-auto"
+          >
+            {topCategories.map((c) => {
+              const active = filters.categoryId === c.id;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => toggleTopCategory(c.id)}
+                  className={cn(
+                    "pressable flex h-9 shrink-0 items-center gap-1.5 rounded-full border pr-3 pl-1.5 text-xs font-medium transition-colors",
+                    active
+                      ? "border-expense/40 bg-expense/15 text-expense"
+                      : "bg-surface-2 text-muted-foreground hover:text-foreground border-transparent",
+                  )}
+                >
+                  <span
+                    className="flex size-6 items-center justify-center rounded-full"
+                    style={{
+                      backgroundColor: `color-mix(in srgb, ${c.color} 20%, transparent)`,
+                      color: c.color,
+                    }}
+                  >
+                    <AppIcon name={c.icon} className="size-3.5" />
+                  </span>
+                  {c.name}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
         {chips.length ? (
           <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto">
             {chips.map((c) => (

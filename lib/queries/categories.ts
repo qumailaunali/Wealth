@@ -51,6 +51,43 @@ export async function getCategoryUsage(): Promise<Record<string, number>> {
   return Object.fromEntries(rows.map((r) => [r.categoryId as string, r._count._all]));
 }
 
+/**
+ * Most-used expense categories over the last 90 days (by transaction count, so
+ * mixed currencies don't skew it). Sub-categories roll up into their parent,
+ * matching how the categoryId filter includes children.
+ */
+export async function getTopExpenseCategoryIds(limit = 8): Promise<string[]> {
+  const user = await requireUser();
+  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const [rows, categories] = await Promise.all([
+    db.transaction.groupBy({
+      by: ["categoryId"],
+      where: {
+        userId: user.id,
+        type: "EXPENSE",
+        categoryId: { not: null },
+        occurredAt: { gte: since },
+      },
+      _count: { _all: true },
+    }),
+    loadCategories(user.id),
+  ]);
+  const byId = new Map(categories.map((c) => [c.id, c]));
+  const counts = new Map<string, number>();
+  for (const r of rows) {
+    const cat = byId.get(r.categoryId as string);
+    if (!cat) continue;
+    const parent = cat.parentId ? byId.get(cat.parentId) : undefined;
+    const root = parent ?? cat;
+    if (root.isArchived || root.type !== "EXPENSE") continue;
+    counts.set(root.id, (counts.get(root.id) ?? 0) + r._count._all);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([id]) => id);
+}
+
 export async function getTags(): Promise<string[]> {
   const user = await requireUser();
   const tags = await getCachedTags(user.id);

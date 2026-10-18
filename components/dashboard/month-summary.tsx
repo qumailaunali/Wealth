@@ -89,7 +89,8 @@ export function MonthSummary({
             key={t.label}
             className={cn(
               "bg-card rounded-2xl border p-3.5",
-              i === 2 && "col-span-2 sm:col-span-1",
+              // Mobile shows only Income; balance lives in TotalBalanceCard there.
+              i === 0 ? "col-span-2 sm:col-span-1" : "hidden sm:block",
             )}
           >
             <div className="flex items-center gap-2">
