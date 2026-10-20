@@ -65,6 +65,30 @@ export async function updateAccount(
   });
 }
 
+/**
+ * Move an account to the front of the user's account order. Accounts are displayed
+ * everywhere (dashboard, pickers) in sortOrder order, so this rewrites the whole
+ * sequence with the target first — which also self-heals any gaps or duplicates
+ * left by older writes.
+ */
+export async function moveAccountToFront(id: string): Promise<ActionResult> {
+  const user = await requireUser();
+  const accountId = idSchema.parse(id);
+  const accounts = await db.account.findMany({
+    where: { userId: user.id },
+    orderBy: [{ isArchived: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+    select: { id: true },
+  });
+  const target = accounts.find((a) => a.id === accountId);
+  if (!target) return fail("Account not found");
+  const ordered = [target, ...accounts.filter((a) => a.id !== accountId)];
+  await db.$transaction(
+    ordered.map((a, i) => db.account.update({ where: { id: a.id }, data: { sortOrder: i } })),
+  );
+  revalidateApp();
+  return ok(undefined);
+}
+
 export async function setAccountArchived(id: string, archived: boolean): Promise<ActionResult> {
   const user = await requireUser();
   const res = await db.account.updateMany({

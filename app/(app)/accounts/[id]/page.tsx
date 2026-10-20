@@ -9,7 +9,7 @@ import { Money } from "@/components/money";
 import { RecentList } from "@/components/transactions/recent-list";
 import { PersonActions } from "@/components/accounts/person-actions";
 import { accountTypeLabel, isReceivable } from "@/lib/constants";
-import { getAccount } from "@/lib/queries/accounts";
+import { getAccount, getAccounts } from "@/lib/queries/accounts";
 import { listTransactions } from "@/lib/queries/transactions";
 
 export const metadata: Metadata = { title: "Account" };
@@ -17,13 +17,15 @@ export const metadata: Metadata = { title: "Account" };
 export default async function AccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   // Both queries are scoped to the signed-in user, so they can run in parallel.
-  const [data, recent] = await Promise.all([
+  const [data, recent, allAccounts] = await Promise.all([
     getAccount(id),
     listTransactions({ accountId: id }, null, 15),
+    getAccounts(),
   ]);
   if (!data) notFound();
   const { account, flows, txCount } = data;
   const person = isReceivable(account);
+  const isFirst = allAccounts[0]?.id === account.id;
   const owed = account.balance < 0;
   const stats = person
     ? [
@@ -105,7 +107,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
       </section>
 
       {person && !account.isArchived ? <PersonActions person={account} /> : null}
-      <AccountActions account={account} txCount={txCount} />
+      <AccountActions account={account} txCount={txCount} isFirst={isFirst} />
 
       <Card
         title="Transactions"

@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowUpToLine, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -15,15 +15,33 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { deleteAccount, setAccountArchived } from "@/lib/actions/accounts";
+import { deleteAccount, moveAccountToFront, setAccountArchived } from "@/lib/actions/accounts";
 import type { AccountView } from "@/lib/types";
 import { AccountFormSheet } from "./account-form-sheet";
 
-export function AccountActions({ account, txCount }: { account: AccountView; txCount: number }) {
+export function AccountActions({
+  account,
+  txCount,
+  isFirst = false,
+}: {
+  account: AccountView;
+  txCount: number;
+  isFirst?: boolean;
+}) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  const showFirst = !isFirst && !account.isArchived;
+
+  const moveToFront = () =>
+    startTransition(async () => {
+      const res = await moveAccountToFront(account.id);
+      if (!res.ok) return void toast.error(res.error);
+      toast.success(`“${account.name}” will now show first`);
+      router.refresh();
+    });
 
   const toggleArchive = () =>
     startTransition(async () => {
@@ -42,7 +60,12 @@ export function AccountActions({ account, txCount }: { account: AccountView; txC
     });
 
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className={showFirst ? "grid grid-cols-2 gap-2 sm:grid-cols-4" : "grid grid-cols-3 gap-2"}>
+      {showFirst ? (
+        <Button variant="outline" onClick={moveToFront} disabled={pending}>
+          <ArrowUpToLine aria-hidden="true" /> Show first
+        </Button>
+      ) : null}
       <Button variant="outline" onClick={() => setEditOpen(true)}>
         <Pencil aria-hidden="true" /> Edit
       </Button>
